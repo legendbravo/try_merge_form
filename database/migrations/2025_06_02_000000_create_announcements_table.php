@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('image_path')->nullable();
             $table->string('button_text')->nullable();
             $table->string('button_link')->nullable();
+            $table->string('category')->default('announcement');
             $table->boolean('is_active')->default(true);
             $table->timestamp('starts_at')->nullable();
             $table->timestamp('ends_at')->nullable();

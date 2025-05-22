@@ -61,6 +61,7 @@
             box-shadow: var(--shadow-sm);
             z-index: 1000;
             transition: all 0.3s ease;
+            overflow-y: auto;
         }
 
         .sidebar-header {
@@ -106,6 +107,11 @@
             width: 1.5rem;
             font-size: 1.1rem;
             margin-right: 0.75rem;
+        }
+        
+        /* Font Sizes */
+        .fs-7 {
+            font-size: 0.85rem !important;
         }
 
         /* Main Content Styles */
@@ -398,10 +404,6 @@
                             <i class="fas fa-tachometer-alt"></i>
                             Dashboard
                         </a>
-                        <a href="{{ route('barangay.submit-report') }}" class="nav-link {{ request()->routeIs('barangay.submit-report') ? 'active' : '' }}">
-                            <i class="fas fa-file-upload"></i>
-                            Submit Report
-                        </a>
                         <a href="{{ route('barangay.submissions') }}" class="nav-link {{ request()->routeIs('barangay.submissions') ? 'active' : '' }}">
                             <i class="fas fa-list"></i>
                             My Submissions
@@ -421,6 +423,8 @@
                                 Logout
                             </button>
                         </form>
+                        
+                        @include('components.sidebar-announcements')
                     </nav>
                 </div>
             </div>

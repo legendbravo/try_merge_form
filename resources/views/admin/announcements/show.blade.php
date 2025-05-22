@@ -29,6 +29,26 @@
             <div class="card-body">
                 <h3 class="mb-3">{{ $announcement->title }}</h3>
                 
+                <div class="mb-3">
+                    @if($announcement->category == 'recognition')
+                        <span class="badge bg-success">
+                            <i class="fas fa-award me-1"></i> Recognition
+                        </span>
+                    @elseif($announcement->category == 'important_update')
+                        <span class="badge bg-danger">
+                            <i class="fas fa-bell me-1"></i> Important Update
+                        </span>
+                    @elseif($announcement->category == 'upcoming_event')
+                        <span class="badge bg-primary">
+                            <i class="fas fa-calendar me-1"></i> Upcoming Event
+                        </span>
+                    @else
+                        <span class="badge bg-secondary">
+                            <i class="fas fa-info-circle me-1"></i> Announcement
+                        </span>
+                    @endif
+                </div>
+                
                 <div class="mb-4">
                     {!! $announcement->content !!}
                 </div>

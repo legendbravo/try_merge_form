@@ -28,6 +28,7 @@ class Announcement extends Model
         'created_by',
         'updated_by',
         'priority',
+        'category',
     ];
 
     /**

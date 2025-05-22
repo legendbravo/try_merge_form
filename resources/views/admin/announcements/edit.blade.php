@@ -64,6 +64,19 @@
                     </div>
                     
                     <div class="mb-3">
+                        <label for="category" class="form-label">Category <span class="text-danger">*</span></label>
+                        <select class="form-select @error('category') is-invalid @enderror" id="category" name="category" required>
+                            <option value="announcement" {{ old('category', $announcement->category) == 'announcement' ? 'selected' : '' }}>General Announcement</option>
+                            <option value="recognition" {{ old('category', $announcement->category) == 'recognition' ? 'selected' : '' }}>Recognition</option>
+                            <option value="important_update" {{ old('category', $announcement->category) == 'important_update' ? 'selected' : '' }}>Important Update</option>
+                            <option value="upcoming_event" {{ old('category', $announcement->category) == 'upcoming_event' ? 'selected' : '' }}>Upcoming Event</option>
+                        </select>
+                        @error('category')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    
+                    <div class="mb-3">
                         <label for="content" class="form-label">Content</label>
                         <textarea class="form-control @error('content') is-invalid @enderror" id="content" name="content">{{ old('content', $announcement->content) }}</textarea>
                         @error('content')
@@ -75,7 +88,8 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="button_text" class="form-label">Button Text</label>
-                                <input type="text" class="form-control @error('button_text') is-invalid @enderror" id="button_text" name="button_text" value="{{ old('button_text', $announcement->button_text) }}">
+                                <input type="text" class="form-control @error('button_text') is-invalid @enderror" id="button_text" name="button_text" value="{{ old('button_text', $announcement->button_text) }}" placeholder="e.g. Read More, Learn More">
+                                <small class="text-muted">Text to display on the button</small>
                                 @error('button_text')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -84,7 +98,8 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="button_link" class="form-label">Button Link</label>
-                                <input type="text" class="form-control @error('button_link') is-invalid @enderror" id="button_link" name="button_link" value="{{ old('button_link', $announcement->button_link) }}">
+                                <input type="text" class="form-control @error('button_link') is-invalid @enderror" id="button_link" name="button_link" value="{{ old('button_link', $announcement->button_link) }}" placeholder="e.g. https://example.com">
+                                <small class="text-muted">URL that will open in a new tab when button is clicked</small>
                                 @error('button_link')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -97,7 +112,7 @@
                     <div class="mb-3">
                         <label for="image" class="form-label">Image</label>
                         <input type="file" class="form-control @error('image') is-invalid @enderror" id="image" name="image" accept="image/*">
-                        <small class="text-muted">Leave empty to keep current image. Recommended size: 800x600 pixels. Max size: 2MB.</small>
+                        <small class="text-muted">Leave empty to keep current image. Recommended size: 800x600 pixels. Max size: 25MB.</small>
                         @error('image')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror

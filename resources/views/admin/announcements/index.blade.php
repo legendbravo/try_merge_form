@@ -29,6 +29,7 @@
                 <thead>
                     <tr>
                         <th>Title</th>
+                        <th>Category</th>
                         <th>Status</th>
                         <th>Schedule</th>
                         <th>Priority</th>
@@ -51,6 +52,25 @@
                                         <div class="small text-muted">{{ Str::limit(strip_tags($announcement->content), 50) }}</div>
                                     </div>
                                 </div>
+                            </td>
+                            <td>
+                                @if($announcement->category == 'recognition')
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-award me-1"></i> Recognition
+                                    </span>
+                                @elseif($announcement->category == 'important_update')
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-bell me-1"></i> Important Update
+                                    </span>
+                                @elseif($announcement->category == 'upcoming_event')
+                                    <span class="badge bg-primary">
+                                        <i class="fas fa-calendar me-1"></i> Upcoming Event
+                                    </span>
+                                @else
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-info-circle me-1"></i> Announcement
+                                    </span>
+                                @endif
                             </td>
                             <td>
                                 <form action="{{ route('admin.announcements.toggle-status', $announcement) }}" method="POST">

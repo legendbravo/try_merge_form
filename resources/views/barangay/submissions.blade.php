@@ -42,7 +42,7 @@
                             <span class="input-group-text">
                                 <i class="fas fa-filter"></i>
                             </span>
-                            <select class="form-select" name="frequency" id="frequencyFilter">
+                            <select class="form-select filter-select" name="frequency" id="frequencyFilter">
                                 <option value="">All Frequencies</option>
                                 <option value="weekly" {{ ($frequency ?? '') == 'weekly' ? 'selected' : '' }}>Weekly</option>
                                 <option value="monthly" {{ ($frequency ?? '') == 'monthly' ? 'selected' : '' }}>Monthly</option>
@@ -56,12 +56,16 @@
                             <span class="input-group-text">
                                 <i class="fas fa-sort"></i>
                             </span>
-                            <select class="form-select" name="sort_by" id="sortBy">
+                            <select class="form-select filter-select" name="sort_by" id="sortBy">
                                 <option value="newest" {{ ($sortBy ?? 'newest') == 'newest' ? 'selected' : '' }}>Newest First</option>
                                 <option value="oldest" {{ ($sortBy ?? '') == 'oldest' ? 'selected' : '' }}>Oldest First</option>
                                 <option value="type" {{ ($sortBy ?? '') == 'type' ? 'selected' : '' }}>Report Type</option>
                             </select>
                         </div>
+
+                        <button type="submit" class="btn btn-primary d-none" id="submitFilterBtn">
+                            <i class="fas fa-search me-1"></i> Apply Filters
+                        </button>
 
                         @if(!empty($search) || !empty($frequency) || ($sortBy ?? 'newest') != 'newest')
                             <a href="{{ route('barangay.submissions') }}" class="btn btn-light">
@@ -92,9 +96,14 @@
                     @if ($reports->isEmpty())
                         <div class="text-center py-5">
                             <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
-                            <h5 class="text-muted">No reports have been submitted yet</h5>
-                            <a href="{{ route('barangay.submit-report') }}" class="btn btn-primary mt-3">
-                                <i class="fas fa-plus me-2"></i>Submit New Report
+                            @if(!empty($search) || !empty($frequency) || ($sortBy ?? 'newest') != 'newest')
+                                <h5 class="text-muted">No reports match the selected filters</h5>
+                            @else
+                                <h5 class="text-muted">No reports have been assigned yet</h5>
+                                <p class="text-muted small">Reports will be assigned by the admin for upcoming submission deadlines</p>
+                            @endif
+                            <a href="{{ route('barangay.submissions') }}" class="btn btn-outline-primary mt-3">
+                                <i class="fas fa-times me-2"></i>Clear Filters
                             </a>
                         </div>
                     @else
@@ -1151,480 +1160,34 @@
     @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Add event listeners to all filter selects
+            const filterSelects = document.querySelectorAll('.filter-select');
+            filterSelects.forEach(select => {
+                select.addEventListener('change', function() {
+                    document.getElementById('filterForm').submit();
+                });
+            });
+
+            // Add debounced event listener to search input
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                let searchTimeout;
+                searchInput.addEventListener('input', function() {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(function() {
+                        document.getElementById('filterForm').submit();
+                    }, 500);
+                });
+            }
+
             // Initialize tooltips
             const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
+                return new bootstrap.Tooltip(tooltipTriggerEl, {
+                    container: 'body'
+                });
             });
-
-            // Handle search form submission
-            const searchForm = document.querySelector('form[action="{{ route('barangay.submissions') }}"]');
-            const searchInput = document.getElementById('searchInput');
-
-            // Submit search on Enter key
-            searchInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    searchForm.submit();
-                }
-            });
-
-            // Check if we need to show the success modal (after form submission)
-            @if(session('success'))
-            var successModal = new bootstrap.Modal(document.getElementById('successModal'), {
-                backdrop: 'static',  // Prevent closing when clicking outside
-                keyboard: false      // Prevent closing with keyboard
-            });
-            document.getElementById('successModalMessage').textContent = "{{ session('success') }}";
-
-            // Set the title based on the report status
-            @if(session('reportStatus') === 'rejected')
-            document.getElementById('successModalTitle').textContent = "Report Resubmitted Successfully";
-            @else
-            document.getElementById('successModalTitle').textContent = "Report Updated Successfully";
-            @endif
-
-            // Show the modal
-            successModal.show();
-
-            // Set up countdown timer
-            let countdown = 2;
-            const countdownElement = document.getElementById('countdown');
-
-            // Update countdown every second
-            const countdownInterval = setInterval(function() {
-                countdown--;
-                countdownElement.textContent = countdown;
-
-                if (countdown <= 0) {
-                    clearInterval(countdownInterval);
-                    successModal.hide();
-                    window.location.reload();
-                }
-            }, 1000);
-            @endif
         });
-
-        // Only define the previewFile function if there are reports
-        @if(!$reports->isEmpty())
-        // File preview function
-        function previewFile(url, fileName) {
-            // Set the file name in the modal
-            document.getElementById('previewFileName').textContent = fileName;
-
-            // Set the download link
-            const downloadLink = document.getElementById('downloadLink');
-            downloadLink.href = url + '?download=true';
-
-            // Show loading spinner
-            const previewContainer = document.getElementById('previewContainer');
-            previewContainer.innerHTML = `
-                <div class="text-center">
-                    <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="text-muted">Loading document preview...</p>
-                </div>
-            `;
-
-            // Get file extension
-            const extension = fileName.split('.').pop().toLowerCase();
-
-            // Update file type icon based on extension
-            const fileTypeIcon = document.getElementById('fileTypeIcon');
-            const fileIconElement = fileTypeIcon.querySelector('i');
-
-            // Set icon and background color based on file type
-            let iconClass = 'fa-file';
-            let bgColorClass = 'primary';
-
-            switch(extension) {
-                case 'pdf':
-                    iconClass = 'fa-file-pdf';
-                    bgColorClass = 'danger';
-                    break;
-                case 'doc':
-                case 'docx':
-                    iconClass = 'fa-file-word';
-                    bgColorClass = 'primary';
-                    break;
-                case 'xls':
-                case 'xlsx':
-                    iconClass = 'fa-file-excel';
-                    bgColorClass = 'success';
-                    break;
-                case 'jpg':
-                case 'jpeg':
-                case 'png':
-                case 'gif':
-                    iconClass = 'fa-file-image';
-                    bgColorClass = 'info';
-                    break;
-                case 'txt':
-                    iconClass = 'fa-file-alt';
-                    bgColorClass = 'secondary';
-                    break;
-                default:
-                    iconClass = 'fa-file';
-                    bgColorClass = 'primary';
-            }
-
-            // Update icon class
-            fileIconElement.className = `fas ${iconClass} fa-lg text-${bgColorClass}`;
-
-            // Update background color
-            fileTypeIcon.style.backgroundColor = `rgba(var(--${bgColorClass}-rgb), 0.1)`;
-
-            // Show the modal
-            const modal = new bootstrap.Modal(document.getElementById('filePreviewModal'));
-            modal.show();
-
-            // Fetch the file
-            fetch(url)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('File not found or access denied');
-                    }
-                    const contentType = response.headers.get('content-type');
-                    return response.blob().then(blob => ({ blob, contentType }));
-                })
-                .then(({ blob, contentType }) => {
-                    const fileUrl = URL.createObjectURL(blob);
-
-                    // Create preview based on content type and extension
-                    if (contentType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
-                        // Image preview
-                        previewContainer.innerHTML = `
-                            <div class="text-center p-3 bg-white rounded shadow-sm" style="max-width: 95%;">
-                                <img src="${fileUrl}" class="img-fluid" alt="${fileName}" style="max-height: 65vh;">
-                                <div class="mt-3 text-muted small">
-                                    <i class="fas fa-info-circle me-1"></i> Image preview: ${fileName}
-                                </div>
-                            </div>`;
-                    } else if (contentType === 'application/pdf' || extension === 'pdf') {
-                        // PDF preview
-                        previewContainer.innerHTML = `
-                            <div class="bg-white rounded shadow-sm" style="width: 95%; height: 65vh;">
-                                <iframe src="${fileUrl}"
-                                        style="width: 100%; height: 100%; border: none; border-radius: 0.375rem;"
-                                        title="${fileName}">
-                                </iframe>
-                            </div>`;
-                    } else if (contentType.startsWith('text/') || ['txt', 'csv', 'html'].includes(extension)) {
-                        // Text preview
-                        fetch(fileUrl)
-                            .then(response => response.text())
-                            .then(text => {
-                                previewContainer.innerHTML = `
-                                    <div class="bg-white rounded shadow-sm" style="width: 95%; max-height: 65vh; overflow-y: auto;">
-                                        <pre class="text-start p-4 mb-0" style="white-space: pre-wrap;">${text}</pre>
-                                        <div class="p-3 border-top text-muted small">
-                                            <i class="fas fa-info-circle me-1"></i> Text document: ${fileName}
-                                        </div>
-                                    </div>`;
-                            });
-                    } else if (['doc', 'docx', 'xls', 'xlsx'].includes(extension)) {
-                        // Office documents - use Google Docs Viewer
-                        const googleDocsUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(window.location.origin + url)}&embedded=true`;
-                        previewContainer.innerHTML = `
-                            <div class="bg-white rounded shadow-sm" style="width: 95%; height: 65vh;">
-                                <iframe src="${googleDocsUrl}"
-                                        style="width: 100%; height: 100%; border: none; border-radius: 0.375rem;"
-                                        title="${fileName}">
-                                </iframe>
-                                <div class="p-3 border-top text-muted small">
-                                    <i class="fas fa-info-circle me-1"></i> Office document preview powered by Google Docs
-                                </div>
-                            </div>`;
-                    } else {
-                        // Unsupported file type
-                        previewContainer.innerHTML = `
-                            <div class="bg-white rounded shadow-sm p-4 text-center" style="max-width: 500px;">
-                                <div class="mb-3">
-                                    <i class="fas ${iconClass} fa-4x text-${bgColorClass} mb-3"></i>
-                                    <h5 class="mb-3">Preview Not Available</h5>
-                                    <p class="text-muted mb-4">This file type cannot be previewed in the browser.</p>
-                                </div>
-                                <a href="${downloadLink.href}" class="btn btn-primary">
-                                    <i class="fas fa-download me-2"></i> Download to View
-                                </a>
-                                <div class="mt-4 text-start text-muted small">
-                                    <div><strong>File name:</strong> ${fileName}</div>
-                                    <div><strong>File type:</strong> ${contentType || 'Unknown'}</div>
-                                    <div><strong>Extension:</strong> ${extension}</div>
-                                </div>
-                            </div>`;
-                    }
-                })
-                .catch(error => {
-                    console.error('Preview error:', error);
-                    previewContainer.innerHTML = `
-                        <div class="bg-white rounded shadow-sm p-4 text-center" style="max-width: 500px;">
-                            <div class="mb-3 text-danger">
-                                <i class="fas fa-exclamation-circle fa-4x mb-3"></i>
-                                <h5 class="mb-3">Error Loading File</h5>
-                                <p class="text-muted mb-4">${error.message}</p>
-                            </div>
-                            <a href="${downloadLink.href}" class="btn btn-primary">
-                                <i class="fas fa-download me-2"></i> Try Downloading Instead
-                            </a>
-                            <div class="mt-4 text-start text-muted small">
-                                <div><strong>File name:</strong> ${fileName}</div>
-                                <div><strong>Extension:</strong> ${extension}</div>
-                            </div>
-                        </div>`;
-                });
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize tooltips
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-
-            // Search and filter functionality
-            const searchInput = document.getElementById('searchInput');
-            const searchButton = document.getElementById('searchButton');
-            const frequencyFilter = document.getElementById('frequencyFilter');
-            const sortBy = document.getElementById('sortBy');
-            const table = document.querySelector('table');
-            const rows = table.getElementsByTagName('tr');
-
-            function filterTable() {
-                const searchText = searchInput.value.toLowerCase();
-                const frequencyValue = frequencyFilter.value.toLowerCase();
-                const sortValue = sortBy.value;
-
-                let visibleRows = [];
-
-                // First, filter the rows
-                for (let i = 1; i < rows.length; i++) {
-                    const row = rows[i];
-                    const cells = row.getElementsByTagName('td');
-                    const reportType = cells[0].textContent.toLowerCase();
-                    const frequency = cells[1].textContent.toLowerCase();
-                    const status = cells[3].textContent.toLowerCase();
-                    const date = cells[2].textContent.toLowerCase();
-                    const remarks = cells[4].textContent.toLowerCase();
-
-                    // Improved search to look across multiple fields
-                    const matchesSearch = searchText === '' ||
-                                         reportType.includes(searchText) ||
-                                         frequency.includes(searchText) ||
-                                         status.includes(searchText) ||
-                                         date.includes(searchText) ||
-                                         remarks.includes(searchText);
-
-                    const matchesFrequency = !frequencyValue || frequency.includes(frequencyValue);
-
-                    if (matchesSearch && matchesFrequency) {
-                        row.style.display = '';
-                        visibleRows.push(row);
-                    } else {
-                        row.style.display = 'none';
-                    }
-                }
-
-                // Then, sort the visible rows
-                visibleRows.sort((a, b) => {
-                    const aCells = a.getElementsByTagName('td');
-                    const bCells = b.getElementsByTagName('td');
-
-                    switch(sortValue) {
-                        case 'newest':
-                            return new Date(bCells[2].textContent) - new Date(aCells[2].textContent);
-                        case 'oldest':
-                            return new Date(aCells[2].textContent) - new Date(bCells[2].textContent);
-                        case 'type':
-                            return aCells[0].textContent.localeCompare(bCells[0].textContent);
-                        case 'status':
-                            return aCells[3].textContent.localeCompare(bCells[3].textContent);
-                        default:
-                            return 0;
-                    }
-                });
-
-                // Reorder the rows in the table
-                const tbody = table.querySelector('tbody');
-                visibleRows.forEach(row => tbody.appendChild(row));
-            }
-
-            // Add event listeners for real-time filtering
-            searchButton.addEventListener('click', function(e) {
-                e.preventDefault();
-                filterTable();
-            });
-
-            searchInput.addEventListener('keyup', function() {
-                filterTable();
-
-                // Show/hide clear filters button
-                const clearFiltersBtn = document.querySelector('a[href="{{ route('barangay.submissions') }}"]');
-                if (clearFiltersBtn) {
-                    if (searchInput.value || frequencyFilter.value || sortBy.value !== 'newest') {
-                        clearFiltersBtn.classList.remove('d-none');
-                    } else {
-                        clearFiltersBtn.classList.add('d-none');
-                    }
-                }
-            });
-
-            frequencyFilter.addEventListener('change', function() {
-                filterTable();
-
-                // Submit form to update URL parameters for server-side filtering
-                const form = document.querySelector('form[action="{{ route('barangay.submissions') }}"]');
-                if (form) {
-                    form.submit();
-                }
-            });
-
-            sortBy.addEventListener('change', function() {
-                filterTable();
-
-                // Submit form to update URL parameters for server-side sorting
-                const form = document.querySelector('form[action="{{ route('barangay.submissions') }}"]');
-                if (form) {
-                    form.submit();
-                }
-            });
-
-            // File upload drag and drop functionality
-            document.querySelectorAll('.file-upload-container').forEach(container => {
-                const fileInput = container.querySelector('input[type="file"]');
-                const fileInfo = container.querySelector('.file-upload-container .d-none');
-                const fileName = container.querySelector('.file-upload-container .d-none span');
-
-                container.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    container.classList.add('dragover');
-                });
-
-                container.addEventListener('dragleave', () => {
-                    container.classList.remove('dragover');
-                });
-
-                container.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    container.classList.remove('dragover');
-                    const files = e.dataTransfer.files;
-                    if (files.length > 0) {
-                        fileInput.files = files;
-                        updateFileInfo(files[0], fileInfo, fileName);
-                    }
-                });
-
-                fileInput.addEventListener('change', (e) => {
-                    if (e.target.files.length > 0) {
-                        updateFileInfo(e.target.files[0], fileInfo, fileName);
-                    }
-                });
-            });
-
-            function updateFileInfo(file, fileInfo, fileName) {
-                fileName.textContent = file.name;
-                fileInfo.classList.remove('d-none');
-            }
-
-            window.clearFile = function(id) {
-                const fileInput = document.getElementById('fileInput' + id);
-                const fileInfo = document.getElementById('fileInfo' + id);
-                fileInput.value = '';
-                fileInfo.classList.add('d-none');
-            };
-
-            // File upload handling for report {{ $reportId }}
-            const dropZone{{ $reportId }} = document.getElementById('dropZone{{ $reportId }}');
-            const fileInput{{ $reportId }} = document.getElementById('fileInput{{ $reportId }}');
-            const fileInfo{{ $reportId }} = document.getElementById('fileInfo{{ $reportId }}');
-            const fileName{{ $reportId }} = document.getElementById('fileName{{ $reportId }}');
-            const submitBtn{{ $reportId }} = document.getElementById('submitBtn{{ $reportId }}');
-
-            // Prevent default drag behaviors
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                dropZone{{ $reportId }}.addEventListener(eventName, preventDefaults, false);
-                document.body.addEventListener(eventName, preventDefaults, false);
-            });
-
-            // Highlight drop zone when item is dragged over it
-            ['dragenter', 'dragover'].forEach(eventName => {
-                dropZone{{ $reportId }}.addEventListener(eventName, highlight, false);
-            });
-
-            ['dragleave', 'drop'].forEach(eventName => {
-                dropZone{{ $reportId }}.addEventListener(eventName, unhighlight, false);
-            });
-
-            // Handle dropped files
-            dropZone{{ $reportId }}.addEventListener('drop', handleDrop, false);
-
-            function preventDefaults (e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-
-            function highlight(e) {
-                dropZone{{ $reportId }}.classList.add('dragover');
-            }
-
-            function unhighlight(e) {
-                dropZone{{ $reportId }}.classList.remove('dragover');
-            }
-
-            function handleDrop(e) {
-                const dt = e.dataTransfer;
-                const files = dt.files;
-                fileInput{{ $reportId }}.files = files;
-                handleFiles(files);
-            }
-
-            fileInput{{ $reportId }}.addEventListener('change', function() {
-                handleFiles(this.files);
-            });
-
-            function handleFiles(files) {
-                if (files.length > 0) {
-                    const file = files[0];
-                    const fileSize = file.size / 1024 / 1024; // in MB
-
-                    if (fileSize > 2) {
-                        alert('File size must be less than 2MB');
-                        clearFile({{ $reportId }});
-                        return;
-                    }
-
-                    const validTypes = ['.pdf', '.doc', '.docx', '.xlsx'];
-                    const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
-
-                    if (!validTypes.includes(fileExtension)) {
-                        alert('Invalid file type. Please upload PDF, DOC, DOCX, or XLSX files only.');
-                        clearFile({{ $reportId }});
-                        return;
-                    }
-
-                    fileName{{ $reportId }}.textContent = file.name;
-                    fileInfo{{ $reportId }}.classList.remove('d-none');
-                }
-            }
-
-            function clearFile(id) {
-                const fileInput = document.getElementById('fileInput' + id);
-                const fileInfo = document.getElementById('fileInfo' + id);
-
-                if (fileInput && fileInfo) {
-                    fileInput.value = '';
-                    fileInfo.classList.add('d-none');
-                }
-            }
-
-            // No special form submission handling needed
-            // Let the form submit normally to ensure all fields are properly submitted
-
-            // No additional JavaScript needed for modal open
-            // The form fields are already populated with the existing data in the blade template
-        });
-        @endif
     </script>
     @endpush
 
