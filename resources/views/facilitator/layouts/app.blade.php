@@ -48,6 +48,7 @@
             color: var(--gray-800);
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
             min-height: 100vh;
+            overflow-x: hidden;
         }
 
         /* Sidebar Styles */
@@ -56,10 +57,11 @@
             min-height: 100vh;
             padding: 1.5rem 0;
             position: fixed;
-            width: inherit;
-            max-width: inherit;
+            width: 280px;
             box-shadow: var(--shadow-sm);
             z-index: 1000;
+            transition: all 0.3s ease;
+            overflow-y: auto;
         }
 
         .sidebar-header {
@@ -88,6 +90,7 @@
             display: flex;
             align-items: center;
             font-weight: 500;
+            text-decoration: none;
         }
 
         .nav-link:hover {
@@ -109,8 +112,9 @@
         /* Main Content Styles */
         .main-content {
             padding: 2rem;
-            margin-left: 16.666667%;
+            margin-left: 280px;
             min-height: 100vh;
+            transition: all 0.3s ease;
         }
 
         /* Card Styles */
@@ -308,9 +312,9 @@
         /* Responsive Adjustments */
         @media (max-width: 768px) {
             .sidebar {
+                width: 100%;
                 position: relative;
                 min-height: auto;
-                width: 100%;
             }
 
             .main-content {
@@ -318,38 +322,49 @@
                 padding: 1rem;
             }
         }
+
+        /* Font Sizes */
+        .fs-7 {
+            font-size: 0.85rem !important;
+        }
     </style>
     @stack('styles')
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
+    <div class="container-fluid p-0">
+        <div class="row g-0">
             <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 sidebar">
-                <div class="sidebar-header">
-                    <h4>Facilitator Panel</h4>
-                    <small>Control Center</small>
+            <div class="col-auto">
+                <div class="sidebar">
+                    <div class="sidebar-header">
+                        <h4>Facilitator Panel</h4>
+                        <small>Control Center</small>
+                    </div>
+                    <nav>
+                        <a class="nav-link {{ request()->routeIs('facilitator.dashboard') ? 'active' : '' }}" href="{{ route('facilitator.dashboard') }}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                        <a class="nav-link {{ request()->routeIs('facilitator.view-submissions') ? 'active' : '' }}" href="{{ route('facilitator.view-submissions') }}">
+                            <i class="fas fa-inbox"></i> View Submissions
+                        </a>
+                        <form action="{{ route('logout') }}" method="POST" class="mt-4">
+                            @csrf
+                            <button type="submit" class="nav-link text-danger w-100 text-start border-0 bg-transparent">
+                                <i class="fas fa-sign-out-alt"></i>
+                                Logout
+                            </button>
+                        </form>
+                        
+                        @include('components.sidebar-announcements')
+                    </nav>
                 </div>
-                <nav class="nav flex-column">
-                    <a class="nav-link {{ request()->routeIs('facilitator.dashboard') ? 'active' : '' }}" href="{{ route('facilitator.dashboard') }}">
-                        <i class="fas fa-tachometer-alt"></i> Dashboard
-                    </a>
-                    <a class="nav-link {{ request()->routeIs('facilitator.view-submissions') ? 'active' : '' }}" href="{{ route('facilitator.view-submissions') }}">
-                        <i class="fas fa-inbox"></i> View Submissions
-                    </a>
-                    <a class="nav-link" href="{{ route('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
-                        <i class="fas fa-sign-out-alt"></i>
-                        <span>Logout</span>
-                    </a>
-                    <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
-                        @csrf
-                    </form>
-                </nav>
             </div>
 
             <!-- Main Content -->
-            <div class="col-md-9 col-lg-10 main-content">
-                @yield('content')
+            <div class="col">
+                <div class="main-content">
+                    @yield('content')
+                </div>
             </div>
         </div>
     </div>
