@@ -701,25 +701,23 @@
                                         <div class="col-md-6">
                                             <div class="card bg-light h-100">
                                                 <div class="card-body p-3">
-                                                    <form action="{{ route('admin.update.report', $report->unique_id) }}" method="POST">
+                                                    <form action="{{ route('admin.reports.updateStatus', $report->unique_id) }}" method="POST" class="mb-2 return-resubmission-form">
                                                         @csrf
                                                         @method('PUT')
                                                         <input type="hidden" name="type" value="{{ strtolower(str_replace('Report', '', class_basename($report->model_type))) }}">
-
                                                         <h6 class="card-title mb-2">
                                                             <i class="fas fa-comment-alt me-2 text-primary"></i>
                                                             Remarks
                                                         </h6>
-
-                                                        <textarea class="form-control form-control-sm bg-white border"
-                                                                name="remarks"
-                                                                rows="5"
-                                                                placeholder="Enter your remarks or feedback here...">{{ $report->remarks }}</textarea>
-
-                                                        <div class="d-flex justify-content-end mt-3">
-                                                            <button type="submit" class="btn btn-sm btn-primary">
+                                                        <textarea class="form-control form-control-sm bg-white border" name="remarks" rows="5" placeholder="Enter your remarks or feedback here...">{{ $report->remarks }}</textarea>
+                                                        <div class="d-flex justify-content-end mt-3 gap-2">
+                                                            <button type="submit" name="status" value="remarks" class="btn btn-sm btn-primary">
                                                                 <i class="fas fa-save me-1"></i>
                                                                 Save Remarks
+                                                            </button>
+                                                            <button type="submit" name="status" value="returned_for_resubmission" class="btn btn-sm btn-warning">
+                                                                <i class="fas fa-undo me-1"></i>
+                                                                Return for Resubmission
                                                             </button>
                                                         </div>
                                                     </form>

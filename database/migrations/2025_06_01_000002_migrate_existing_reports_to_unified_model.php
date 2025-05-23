@@ -94,8 +94,11 @@ return new class extends Migration
                         ->value('frequency') ?? 'quarterly';
                     
                     $periodData = json_encode([
-                        'quarter' => $report->quarter,
-                        'year' => $report->year ?? date('Y'),
+                        'quarter' => $report->quarter ?? $report->quarter_number ?? null,
+                        'month' => $report->month ?? null,
+                        'year' => $report->year ?? null,
+                        'semester' => $report->semester ?? null,
+                        'week_number' => $report->week_number ?? null,
                     ]);
                     
                     DB::table('reports')->insert([
@@ -126,8 +129,8 @@ return new class extends Migration
                         ->value('frequency') ?? 'semestral';
                     
                     $periodData = json_encode([
-                        'semester' => $report->semester,
-                        'year' => $report->year ?? date('Y'),
+                        'semester' => $report->semester ?? $report->semester_number ?? null,
+                        'year' => $report->year ?? null,
                     ]);
                     
                     DB::table('reports')->insert([

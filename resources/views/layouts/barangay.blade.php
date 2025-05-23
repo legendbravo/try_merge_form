@@ -432,6 +432,9 @@
             <!-- Main Content -->
             <div class="col">
                 <div class="main-content">
+                    <div class="d-flex justify-content-end align-items-center mb-3">
+                        @include('components.notification-bell')
+                    </div>
                     @yield('content')
                 </div>
             </div>

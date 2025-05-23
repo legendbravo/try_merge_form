@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\{ReportType, WeeklyReport, MonthlyReport, QuarterlyReport, SemestralReport, AnnualReport};
+use App\Models\{ReportType, WeeklyReport, MonthlyReport, QuarterlyReport, SemestralReport, AnnualReport, Report, Notification};
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
@@ -623,33 +623,110 @@ class ReportController extends Controller
         }
 
         $request->validate([
-            'file' => 'required|file|mimes:pdf,doc,docx,xlsx|max:2048',
+            'file' => 'required|file|mimes:pdf,doc,docx,xlsx,zip|max:10240',
         ]);
 
-        $fileName = time() . '_' . str_replace([' ', '(', ')'], '_', $request->file('file')->getClientOriginalName());
-        $filePath = "reports/{$report->reportType->frequency}/{$fileName}";
+        // Determine the report type string (e.g., 'weekly') from the report object or its class
+        $reportTypeString = 'unknown';
+        if ($report instanceof WeeklyReport) $reportTypeString = 'weekly';
+        elseif ($report instanceof MonthlyReport) $reportTypeString = 'monthly';
+        elseif ($report instanceof QuarterlyReport) $reportTypeString = 'quarterly';
+        elseif ($report instanceof SemestralReport) $reportTypeString = 'semestral';
+        elseif ($report instanceof AnnualReport) $reportTypeString = 'annual';
+
+        // Generate versioned file name
+        $barangayName = $report->user ? str_replace(' ', '_', strtolower($report->user->name)) : 'barangay';
+        $reportTypeName = $report->reportType ? str_replace(' ', '_', strtolower($report->reportType->name)) : $reportTypeString;
+        $frequency = $reportTypeString;
+        $date = now()->format('Y-m-d');
+        $baseFileName = "{$barangayName}_{$reportTypeName}_{$frequency}_{$date}";
+        $extension = $request->file('file')->getClientOriginalExtension();
+
+        // Check for existing versions in storage
+        $storage = Storage::disk('public');
+        $existingFiles = $storage->files("reports/{$reportTypeString}");
+        $version = 2;
+        foreach ($existingFiles as $file) {
+            if (str_contains($file, $baseFileName)) {
+                // Try to extract version number
+                if (preg_match('/_v(\d+)\\.' . preg_quote($extension, '/') . '$/', $file, $matches)) {
+                    $ver = (int)$matches[1];
+                    if ($ver >= $version) {
+                        $version = $ver + 1;
+                    }
+                } elseif (preg_match('/' . preg_quote($baseFileName, '/') . '\\.' . preg_quote($extension, '/') . '$/', $file)) {
+                    // If the base file exists without version, next is v2
+                    $version = max($version, 2);
+                }
+            }
+        }
+        $fileName = $baseFileName . "_v{$version}.{$extension}";
+        $filePath = "reports/{$reportTypeString}/{$fileName}";
 
         DB::beginTransaction();
         try {
-            // Store file
-            Storage::disk('public')->putFileAs(
-                "reports/{$report->reportType->frequency}",
+            // Archive old file if it exists
+            if ($report->file_path && $storage->exists($report->file_path)) {
+                $archivePath = 'archive/' . basename($report->file_path);
+                try {
+                    $storage->move($report->file_path, $archivePath);
+                } catch (\Exception $e) {
+                    // If move fails, delete the old file
+                    $storage->delete($report->file_path);
+                }
+            }
+
+            // Store new file
+            $storage->putFileAs(
+                "reports/{$reportTypeString}",
                 $request->file('file'),
                 $fileName
             );
 
-            // Update report
-            $report->update([
-                'file_name' => $request->file('file')->getClientOriginalName(),
-                'file_path' => $filePath,
-                'status' => 'submitted',
-                'remarks' => null,
-            ]);
+            // Update report details (generic fields)
+            $report->file_name = $request->file('file')->getClientOriginalName();
+            $report->file_path = $filePath;
+            $report->status = 'resubmitted';
+            $report->remarks = null;
+            $report->submitted_at = Carbon::now();
+
+            // Update frequency-specific fields
+            switch ($reportTypeString) {
+                case 'weekly':
+                    $report->month = $request->input('month', $report->month);
+                    $report->week_number = $request->input('week_number', $report->week_number);
+                    $report->num_of_clean_up_sites = $request->input('num_of_clean_up_sites', $report->num_of_clean_up_sites);
+                    $report->num_of_participants = $request->input('num_of_participants', $report->num_of_participants);
+                    $report->num_of_barangays = $request->input('num_of_barangays', $report->num_of_barangays);
+                    $report->total_volume = $request->input('total_volume', $report->total_volume);
+                    break;
+                case 'monthly':
+                    $report->month = $request->input('month', $report->month);
+                    break;
+                case 'quarterly':
+                    $report->quarter_number = $request->input('quarter_number', $report->quarter_number);
+                    break;
+                case 'semestral':
+                    $report->sem_number = $request->input('sem_number', $report->sem_number);
+                    break;
+                case 'annual':
+                    $report->year = $request->input('year', $report->year);
+                    break;
+            }
+            $report->save();
+
+            // Clear the notification for this report for the current user
+            Notification::where('user_id', Auth::id())
+                ->where('report_id', $report->id)
+                ->delete();
+            Log::info('Notification cleared upon resubmission', ['user_id' => Auth::id(), 'report_id' => $report->id]);
 
             DB::commit();
-            return redirect()->route('reports.view')->with('success', 'Report resubmitted successfully!');
+            // Redirect to a general reports viewing page or dashboard
+            return redirect()->route('barangay.reports.index')->with('success', 'Report resubmitted successfully!');
         } catch (\Exception $e) {
             DB::rollback();
+            Log::error('Failed to resubmit report', ['report_id' => $report->id, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return back()->with('error', 'Failed to resubmit report: ' . $e->getMessage());
         }
     }
@@ -967,6 +1044,108 @@ class ReportController extends Controller
         } catch (\Exception $e) {
             Log::error('File access error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             return response()->json(['error' => 'Error accessing file: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update the status of a report (by Admin/Facilitator).
+     *
+     * @param  \\Illuminate\\Http\\Request  $request
+     * @param  string  $id  The unique report identifier (e.g., 'weekly_1')
+     * @return \\Illuminate\\Http\\RedirectResponse
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'status' => 'required|string|in:approved,rejected,returned_for_resubmission,remarks',
+            'remarks' => 'nullable|string|max:1000',
+        ]);
+
+        Log::info('Updating report status', ['report_id_param' => $id, 'new_status' => $validated['status'], 'remarks' => $validated['remarks']]);
+
+        $report = $this->findReport($id); // findReport can find any type of report
+
+        if (!$report) {
+            Log::error('Report not found for status update', ['report_id_param' => $id]);
+            return redirect()->back()->with('error', 'Report not found.');
+        }
+
+        // Authorization: Ensure only admin or facilitator can update status
+        $currentUser = Auth::user();
+        if (!$currentUser || !in_array($currentUser->role, ['admin', 'facilitator'])) {
+            Log::warning('Unauthorized status update attempt', ['user_id' => $currentUser->id, 'role' => $currentUser->role, 'report_id' => $report->id]);
+            return redirect()->back()->with('error', 'You are not authorized to perform this action.');
+        }
+
+        DB::beginTransaction();
+        try {
+            if ($validated['status'] === 'remarks') {
+                // Only update remarks, do not change status
+                $report->remarks = $validated['remarks'];
+                $report->save();
+
+                // Send notification for remarks
+                if ($report->user_id) {
+                    $reportOwner = User::find($report->user_id);
+                    if ($reportOwner && $reportOwner->role === 'barangay') {
+                        $reportTypeName = $report->reportType ? $report->reportType->name : 'Unknown Report Type';
+                        $message = "Admin left a remark on your report: '{$reportTypeName}'. Please review.";
+                        Notification::create([
+                            'user_id' => $report->user_id,
+                            'report_id' => $report->id,
+                            'message' => $message,
+                            'is_read' => false,
+                        ]);
+                        Log::info('Notification created for remarks', ['user_id' => $report->user_id, 'report_id' => $report->id]);
+                    } else {
+                        Log::warning('Report owner not found or not a barangay user for notification (remarks)', ['report_user_id' => $report->user_id, 'report_id' => $report->id]);
+                    }
+                } else {
+                    Log::warning('Report user_id is null, cannot create notification (remarks)', ['report_id' => $report->id]);
+                }
+
+                DB::commit();
+                return redirect()->back()->with('success', 'Remarks updated and barangay notified successfully.');
+            }
+
+            // For other statuses, update status and remarks
+            $report->status = $validated['status'];
+            if (isset($validated['remarks'])) {
+                $report->remarks = $validated['remarks'];
+            }
+            $report->save();
+
+            Log::info('Report status updated successfully', ['report_id' => $report->id, 'new_status' => $report->status]);
+
+            // If the report is returned for resubmission, create a notification for the Barangay user
+            if ($validated['status'] === 'returned_for_resubmission') {
+                if ($report->user_id) {
+                    $reportOwner = User::find($report->user_id);
+                    if ($reportOwner && $reportOwner->role === 'barangay') {
+                        $reportTypeName = $report->reportType ? $report->reportType->name : 'Unknown Report Type';
+                        $message = "Report '{$reportTypeName}' was returned with remarks. Please review and resubmit.";
+                        Notification::create([
+                            'user_id' => $report->user_id,
+                            'report_id' => $report->id,
+                            'message' => $message,
+                            'is_read' => false,
+                        ]);
+                        Log::info('Notification created for report returned for resubmission', ['user_id' => $report->user_id, 'report_id' => $report->id]);
+                    } else {
+                        Log::warning('Report owner not found or not a barangay user for notification', ['report_user_id' => $report->user_id, 'report_id' => $report->id]);
+                    }
+                } else {
+                    Log::warning('Report user_id is null, cannot create notification', ['report_id' => $report->id]);
+                }
+            }
+
+            DB::commit();
+            return redirect()->back()->with('success', 'Report status updated successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error updating report status', ['report_id' => $report ? $report->id : $id, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return redirect()->back()->with('error', 'Failed to update report status: ' . $e->getMessage());
         }
     }
 }

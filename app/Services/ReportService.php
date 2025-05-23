@@ -139,7 +139,10 @@ class ReportService
             if ($file) {
                 $updateData['status'] = Report::STATUS_SUBMITTED;
                 $user = User::findOrFail($report->user_id);
-                $this->uploadFile($report, $file, $user);
+                $reportFile = $this->uploadFile($report, $file, $user);
+                // Update the main report's file_path and file_name to the new file
+                $updateData['file_path'] = $reportFile->file_path . '/' . $reportFile->stored_filename;
+                $updateData['file_name'] = $reportFile->original_filename;
             } elseif (isset($data['status'])) {
                 $updateData['status'] = $data['status'];
             }

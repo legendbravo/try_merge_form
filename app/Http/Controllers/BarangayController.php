@@ -1093,7 +1093,7 @@ class BarangayController extends Controller
 
         // Basic validation for file - make file optional for resubmission
         $validationRules = [
-            'file' => 'nullable|file|mimes:pdf,doc,docx,xlsx|max:2048',
+            'file' => 'nullable|file|mimes:pdf,doc,docx,xlsx|max:51200', // 50MB
             'report_type_id' => 'required|exists:report_types,id',
             'report_type' => 'required|string|in:weekly,monthly,quarterly,semestral,annual'
         ];
@@ -1169,6 +1169,13 @@ class BarangayController extends Controller
             return redirect()->back()
                 ->withErrors($validator)
                 ->withInput();
+        }
+
+        // Log if a new file is present
+        if ($filteredRequest->hasFile('file')) {
+            Log::info('Barangay resubmitting with new file: ' . $filteredRequest->file('file')->getClientOriginalName());
+        } else {
+            Log::info('Barangay resubmitting WITHOUT new file');
         }
 
         try {
@@ -1248,18 +1255,17 @@ class BarangayController extends Controller
                 $fileName = $report->file_name;
             }
 
-            // Create a new report entry based on report type
-            $newReport = null;
-
-            switch ($reportType) {
-                case 'weekly':
-                    $newReport = WeeklyReport::create([
-                        'user_id' => Auth::id(),
-                        'report_type_id' => $report->report_type_id,
+            // Update the existing report instead of creating a new one
+            $updateData = [
                         'file_path' => $filePath,
                         'file_name' => $fileName,
                         'status' => $newStatus,
-                        'deadline' => $report->deadline,
+                'remarks' => null, // Clear remarks on resubmission
+            ];
+            // Add frequency-specific fields
+            switch ($reportType) {
+                case 'weekly':
+                    $updateData = array_merge($updateData, [
                         'month' => $filteredRequest->month,
                         'week_number' => $filteredRequest->week_number,
                         'num_of_clean_up_sites' => $filteredRequest->num_of_clean_up_sites,
@@ -1269,57 +1275,25 @@ class BarangayController extends Controller
                     ]);
                     break;
                 case 'monthly':
-                    $newReport = MonthlyReport::create([
-                        'user_id' => Auth::id(),
-                        'report_type_id' => $report->report_type_id,
-                        'file_path' => $filePath,
-                        'file_name' => $fileName,
-                        'status' => $newStatus,
-                        'deadline' => $report->deadline,
+                    $updateData = array_merge($updateData, [
                         'month' => $filteredRequest->month
                     ]);
                     break;
                 case 'quarterly':
-                    $newReport = QuarterlyReport::create([
-                        'user_id' => Auth::id(),
-                        'report_type_id' => $report->report_type_id,
-                        'file_path' => $filePath,
-                        'file_name' => $fileName,
-                        'status' => $newStatus,
-                        'deadline' => $report->deadline,
+                    $updateData = array_merge($updateData, [
                         'quarter_number' => $filteredRequest->quarter_number
                     ]);
                     break;
                 case 'semestral':
-                    $newReport = SemestralReport::create([
-                        'user_id' => Auth::id(),
-                        'report_type_id' => $report->report_type_id,
-                        'file_path' => $filePath,
-                        'file_name' => $fileName,
-                        'status' => $newStatus,
-                        'deadline' => $report->deadline,
+                    $updateData = array_merge($updateData, [
                         'sem_number' => $filteredRequest->sem_number
                     ]);
                     break;
                 case 'annual':
-                    $newReport = AnnualReport::create([
-                        'user_id' => Auth::id(),
-                        'report_type_id' => $report->report_type_id,
-                        'file_path' => $filePath,
-                        'file_name' => $fileName,
-                        'status' => $newStatus,
-                        'deadline' => $report->deadline
-                    ]);
+                    // No extra fields
                     break;
             }
-
-            // Log the new report creation
-            Log::info('New report created for resubmission', [
-                'original_report_id' => $report->id,
-                'new_report_id' => $newReport->id,
-                'report_type' => $reportType
-            ]);
-
+            $report->update($updateData);
             DB::commit();
 
             Log::info('Database transaction committed successfully');
@@ -1562,5 +1536,26 @@ class BarangayController extends Controller
             ]);
             return response()->json(['error' => 'Error accessing file: ' . $e->getMessage()], 500);
         }
+    }
+
+    public function viewReport($id)
+    {
+        // Parse the unique identifier (e.g., weekly_1)
+        $parts = explode('_', $id);
+        if (count($parts) !== 2) {
+            return back()->with('error', 'Invalid report identifier.');
+        }
+        $frequency = $parts[0];
+        $reportId = $parts[1];
+
+        // Find the report and check ownership
+        $report = \App\Models\Report::where('id', $reportId)
+            ->where('frequency', $frequency)
+            ->where('user_id', auth()->id())
+            ->first();
+        if (!$report) {
+            return back()->with('error', 'Report not found or you do not have permission to view this report.');
+        }
+        return view('barangay.view-report', compact('report'));
     }
 }

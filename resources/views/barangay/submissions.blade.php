@@ -6,10 +6,8 @@
 @section('content')
     @if(session('success'))
     <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <div class="d-flex align-items-center">
-            <i class="fas fa-check-circle fa-lg me-2"></i>
-            <strong>{{ session('success') }}</strong>
-        </div>
+        <i class="fas fa-check-circle me-2"></i>
+        {{ session('success') }}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
     @endif
@@ -77,14 +75,6 @@
                     @endif
                 </div>
                 <div class="card-body">
-                    @if (session('success'))
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="fas fa-check-circle me-2"></i>
-                            {{ session('success') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    @endif
-
                     @if (session('error'))
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
                             <i class="fas fa-exclamation-circle me-2"></i>
@@ -121,6 +111,9 @@
                                 </thead>
                                 <tbody>
                                     @foreach ($reports as $report)
+                                        @php
+                                            $uniqueId = $report->frequency . '_' . $report->id;
+                                        @endphp
                                         <tr>
                                             <td>
                                                 <div class="d-flex align-items-center">
@@ -198,10 +191,9 @@
                                             <td>
                                                 @if($report->remarks)
                                                     <button type="button"
-                                                            class="btn btn-link btn-sm p-0 text-decoration-none"
-                                                            data-bs-toggle="tooltip"
-                                                            data-bs-placement="top"
-                                                            title="{{ $report->remarks }}">
+                                                            class="btn btn-link btn-sm p-0 text-decoration-none remarks-modal-btn"
+                                                            data-remark="{{ $report->remarks }}"
+                                                            data-unique-id="{{ $uniqueId }}">
                                                         <i class="fas fa-comment-alt text-primary"></i>
                                                         <small>View</small>
                                                     </button>
@@ -210,39 +202,33 @@
                                                 @endif
                                             </td>
                                             <td>
+                                                @if(in_array($report->status, ['rejected', 'returned_for_resubmission']))
                                                 <div class="d-flex justify-content-end gap-1">
-                                                    @php
-                                                        // Store the report ID in a variable for consistency
-                                                        // Use the unique_id if available, otherwise fall back to regular id
-                                                        $reportId = $report->unique_id ?? $report->id;
-                                                    @endphp
-                                                    <button type="button"
-                                                            class="btn btn-sm"
-                                                            style="background: var(--primary-light); color: var(--primary); border: none;"
-                                                            onclick="previewFile('{{ route('barangay.direct.files.download', $reportId) }}', '{{ basename($report->file_path) }}')"
-                                                            data-bs-toggle="tooltip"
-                                                            title="View/Download">
-                                                        <i class="fas fa-eye me-1"></i>
-                                                        View
-                                                    </button>
                                                     <button type="button"
                                                             class="btn btn-sm"
                                                             style="background: {{ $report->status === 'rejected' ? 'var(--warning-light)' : 'var(--info-light)' }};
                                                                    color: {{ $report->status === 'rejected' ? 'var(--warning)' : 'var(--info)' }};
                                                                    border: none;"
                                                             data-bs-toggle="modal"
-                                                            data-bs-target="#resubmitModal{{ $reportId }}"
-                                                            title="{{ $report->status === 'rejected' ? 'Resubmit (Required)' : 'Update Report' }}"
-                                                            {{ $report->status === 'approved' ? 'disabled' : '' }}>
+                                                                data-bs-target="#resubmitModal{{ $uniqueId }}"
+                                                                title="{{ $report->status === 'rejected' ? 'Resubmit (Required)' : 'Update Report' }}">
                                                         <i class="fas {{ $report->status === 'rejected' ? 'fa-redo' : 'fa-upload' }} me-1"></i>
                                                         {{ $report->status === 'rejected' ? 'Resubmit' : 'Update' }}
                                                     </button>
                                                 </div>
+                                                @else
+                                                    <div class="d-flex justify-content-end gap-1">
+                                                        <button type="button" class="btn btn-sm btn-secondary" disabled>
+                                                            <i class="fas fa-ban me-1"></i> Waiting for Admin
+                                                        </button>
+                                                    </div>
+                                                @endif
                                             </td>
                                         </tr>
 
                                         <!-- Resubmit/Update Modal -->
-                                        <div class="modal fade" id="resubmitModal{{ $reportId }}" tabindex="-1" aria-hidden="true">
+                                        @if(in_array($report->status, ['rejected', 'returned_for_resubmission']))
+                                        <div class="modal fade" id="resubmitModal{{ $uniqueId }}" tabindex="-1" aria-hidden="true">
                                             <div class="modal-dialog modal-dialog-centered modal-lg">
                                                 <div class="modal-content border-0 shadow">
                                                     <div class="modal-header bg-light py-2">
@@ -282,14 +268,13 @@
                                                             <div class="card-body">
                                                                 <h6 class="card-title mb-3">
                                                                     <i class="fas fa-exchange-alt me-2 text-primary"></i>
-                                                                    Replace Current File
+                                                                    Current File
                                                                 </h6>
                                                                 <div class="d-flex align-items-center p-3 bg-white rounded border">
                                                                     @php
                                                                         $fileExtension = pathinfo($report->file_path, PATHINFO_EXTENSION);
                                                                         $iconClass = 'fa-file';
                                                                         $colorClass = 'primary';
-
                                                                         if ($fileExtension == 'pdf') {
                                                                             $iconClass = 'fa-file-pdf';
                                                                             $colorClass = 'danger';
@@ -309,22 +294,47 @@
                                                                         <small class="text-muted">Submitted on {{ $report->created_at->format('M d, Y h:i A') }}</small>
                                                                     </div>
                                                                     <div>
-                                                                        <a href="{{ route('barangay.direct.files.download', $reportId) }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                                                                        <a href="{{ route('barangay.direct.files.download', $uniqueId) }}" class="btn btn-sm btn-outline-primary" target="_blank">
                                                                             <i class="fas fa-eye me-1"></i> View
                                                                         </a>
-                                                                        <a href="{{ route('barangay.direct.files.download', $reportId) }}?download=true" class="btn btn-sm btn-outline-secondary ms-1">
+                                                                        <a href="{{ route('barangay.direct.files.download', $uniqueId) }}?download=true" class="btn btn-sm btn-outline-secondary ms-1">
                                                                             <i class="fas fa-download me-1"></i> Download
                                                                         </a>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="mt-3">
+                                                                    <label class="form-label small">Upload Replacement File</label>
+                                                                    <div class="file-upload-container" id="dropZone{{ $uniqueId }}">
+                                                                        <input type="file" name="file" class="d-none" id="fileInput{{ $uniqueId }}" accept=".pdf,.doc,.docx,.xlsx">
+                                                                        <div class="p-2 border rounded" style="background-color: rgba(var(--primary-rgb), 0.03);">
+                                                                            <div class="d-flex align-items-center">
+                                                                                <div>
+                                                                                    <button type="button" class="btn btn-sm btn-primary py-1 px-2" onclick="document.getElementById('fileInput{{ $uniqueId }}').click()">
+                                                                                        <i class="fas fa-folder-open me-1"></i> Browse
+                                                                                    </button>
+                                                                                    <small class="d-block mt-1 text-muted" style="font-size: 0.7rem;">PDF, DOC, DOCX, XLSX (Max: 50MB)</small>
+                                                                                </div>
+                                                                                <div id="fileInfo{{ $uniqueId }}" class="d-none ms-2 flex-grow-1">
+                                                                                    <div class="d-flex align-items-center">
+                                                                                        <i class="fas fa-file-alt text-primary me-1"></i>
+                                                                                        <div>
+                                                                                            <p class="mb-0 small"><span id="fileName{{ $uniqueId }}"></span></p>
+                                                                                        </div>
+                                                                                        <button type="button" class="btn btn-sm btn-link text-danger ms-auto p-0" onclick="clearFile('{{ $uniqueId }}')">
+                                                                                            <i class="fas fa-times"></i>
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         </div>
 
-                                                        <form action="{{ route('barangay.submissions.resubmit', $reportId) }}" method="POST" enctype="multipart/form-data" id="resubmitForm{{ $reportId }}" onsubmit="console.log('Form submitted: {{ $reportId }}'); return true;">
+                                                        <form action="{{ route('barangay.submissions.resubmit', $uniqueId) }}" method="POST" enctype="multipart/form-data" id="resubmitForm{{ $uniqueId }}" onsubmit="console.log('Form submitted: {{ $uniqueId }}'); return true;">
                                                             @csrf
                                                             <input type="hidden" name="report_type_id" value="{{ $report->report_type_id }}">
-
-
 
                                                             <!-- Report Type Specific Fields -->
                                                             @php
@@ -350,7 +360,7 @@
                                                                 $reportType = strtolower($reportType);
                                                             @endphp
                                                             <input type="hidden" name="report_type" value="{{ $reportType }}">
-                                                            <div id="reportFields{{ $reportId }}" data-report-type="{{ $reportType }}" data-report-id="{{ $reportId }}"></div>
+                                                            <div id="reportFields{{ $uniqueId }}" data-report-type="{{ $reportType }}" data-report-id="{{ $uniqueId }}"></div>
 
                                                             @if($reportType == 'weekly')
                                                             <div class="card mb-3" style="background-color: rgba(var(--primary-rgb), 0.03);">
@@ -465,40 +475,9 @@
                                                             </div>
                                                             @endif
 
-                                                            <div class="mb-3">
-                                                                <div class="d-flex align-items-center mb-2">
-                                                                    <i class="fas fa-upload text-primary me-2"></i>
-                                                                    <h6 class="mb-0 small">Upload New Report</h6>
-                                                                </div>
-                                                                <div class="file-upload-container" id="dropZone{{ $reportId }}">
-                                                                    <input type="file" name="file" class="d-none" id="fileInput{{ $reportId }}" accept=".pdf,.doc,.docx,.xlsx">
-                                                                    <div class="p-2 border rounded" style="background-color: rgba(var(--primary-rgb), 0.03);">
-                                                                        <div class="d-flex align-items-center">
-                                                                            <div>
-                                                                                <button type="button" class="btn btn-sm btn-primary py-1 px-2" onclick="document.getElementById('fileInput{{ $reportId }}').click()">
-                                                                                    <i class="fas fa-folder-open me-1"></i> Browse
-                                                                                </button>
-                                                                                <small class="d-block mt-1 text-muted" style="font-size: 0.7rem;">PDF, DOC, DOCX, XLSX (Max: 2MB)</small>
-                                                                            </div>
-                                                                            <div id="fileInfo{{ $reportId }}" class="d-none ms-2 flex-grow-1">
-                                                                                <div class="d-flex align-items-center">
-                                                                                    <i class="fas fa-file-alt text-primary me-1"></i>
-                                                                                    <div>
-                                                                                        <p class="mb-0 small"><span id="fileName{{ $reportId }}"></span></p>
-                                                                                    </div>
-                                                                                    <button type="button" class="btn btn-sm btn-link text-danger ms-auto p-0" onclick="clearFile({{ $reportId }})">
-                                                                                        <i class="fas fa-times"></i>
-                                                                                    </button>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
                                                             <div class="d-flex justify-content-end gap-2 mt-3">
                                                                 <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancel</button>
-                                                                <button type="submit" class="btn btn-sm {{ $report->status === 'rejected' ? 'btn-warning' : 'btn-primary' }}" id="submitBtn{{ $reportId }}">
+                                                                <button type="submit" class="btn btn-sm {{ $report->status === 'rejected' ? 'btn-warning' : 'btn-primary' }}" id="submitBtn{{ $uniqueId }}">
                                                                     <i class="fas {{ $report->status === 'rejected' ? 'fa-redo' : 'fa-upload' }} me-1"></i>
                                                                     {{ $report->status === 'rejected' ? 'Resubmit' : 'Update' }}
                                                                 </button>
@@ -511,6 +490,7 @@
                                                 </div>
                                             </div>
                                         </div>
+                                        @endif
                                     @endforeach
                                 </tbody>
                             </table>
@@ -1178,13 +1158,58 @@
                         document.getElementById('filterForm').submit();
                     }, 500);
                 });
-            }
+        }
 
             // Initialize tooltips
             const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl, {
                     container: 'body'
+                });
+            });
+
+            document.querySelectorAll('.remarks-modal-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var remark = btn.getAttribute('data-remark') || '';
+                    document.getElementById('remarksModalBody').textContent = remark;
+                    var modal = new bootstrap.Modal(document.getElementById('remarksModal'));
+            modal.show();
+                });
+            });
+
+            // Auto-open remarks modal if open_remarks is present in URL
+            const params = new URLSearchParams(window.location.search);
+            const openRemarks = params.get('open_remarks');
+            if (openRemarks) {
+                const btn = document.querySelector(`.remarks-modal-btn[data-unique-id='${openRemarks}']`);
+                if (btn) {
+                    btn.click();
+                }
+            }
+        });
+
+        function clearFile(uniqueId) {
+            const fileInput = document.getElementById('fileInput' + uniqueId);
+            const fileInfo = document.getElementById('fileInfo' + uniqueId);
+            const fileName = document.getElementById('fileName' + uniqueId);
+            if (fileInput) fileInput.value = '';
+            if (fileInfo) fileInfo.classList.add('d-none');
+            if (fileName) fileName.textContent = '';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('input[type="file"]').forEach(function(input) {
+                input.addEventListener('change', function(e) {
+                    const uniqueId = this.id.replace('fileInput', '');
+                    const fileInfo = document.getElementById('fileInfo' + uniqueId);
+                    const fileName = document.getElementById('fileName' + uniqueId);
+                    if (this.files && this.files.length > 0) {
+                        if (fileInfo) fileInfo.classList.remove('d-none');
+                        if (fileName) fileName.textContent = this.files[0].name;
+                    } else {
+                        if (fileInfo) fileInfo.classList.add('d-none');
+                        if (fileName) fileName.textContent = '';
+                    }
                 });
             });
         });
@@ -1260,6 +1285,21 @@
                     </div>
                 </div>
                 <!-- No footer with close button -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Remarks Modal -->
+    <div class="modal fade" id="remarksModal" tabindex="-1" aria-labelledby="remarksModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="remarksModalLabel">Admin Remark</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="remarksModalBody">
+                    <!-- Remark will be inserted here -->
+                </div>
             </div>
         </div>
     </div>

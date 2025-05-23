@@ -336,34 +336,34 @@
             <!-- Sidebar -->
             <div class="col-auto">
                 <div class="sidebar">
-                    <div class="sidebar-header">
-                        <h4>Facilitator Panel</h4>
-                        <small>Control Center</small>
-                    </div>
+                <div class="sidebar-header">
+                    <h4>Facilitator Panel</h4>
+                    <small>Control Center</small>
+                </div>
                     <nav>
-                        <a class="nav-link {{ request()->routeIs('facilitator.dashboard') ? 'active' : '' }}" href="{{ route('facilitator.dashboard') }}">
-                            <i class="fas fa-tachometer-alt"></i> Dashboard
-                        </a>
-                        <a class="nav-link {{ request()->routeIs('facilitator.view-submissions') ? 'active' : '' }}" href="{{ route('facilitator.view-submissions') }}">
-                            <i class="fas fa-inbox"></i> View Submissions
-                        </a>
+                    <a class="nav-link {{ request()->routeIs('facilitator.dashboard') ? 'active' : '' }}" href="{{ route('facilitator.dashboard') }}">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                    <a class="nav-link {{ request()->routeIs('facilitator.view-submissions') ? 'active' : '' }}" href="{{ route('facilitator.view-submissions') }}">
+                        <i class="fas fa-inbox"></i> View Submissions
+                    </a>
                         <form action="{{ route('logout') }}" method="POST" class="mt-4">
                             @csrf
                             <button type="submit" class="nav-link text-danger w-100 text-start border-0 bg-transparent">
-                                <i class="fas fa-sign-out-alt"></i>
+                        <i class="fas fa-sign-out-alt"></i>
                                 Logout
                             </button>
-                        </form>
+                    </form>
                         
                         @include('components.sidebar-announcements')
-                    </nav>
+                </nav>
                 </div>
             </div>
 
             <!-- Main Content -->
             <div class="col">
                 <div class="main-content">
-                    @yield('content')
+                @yield('content')
                 </div>
             </div>
         </div>

@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Report;
 use App\Models\{WeeklyReport, MonthlyReport, QuarterlyReport, SemestralReport, AnnualReport};
 use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\NotificationController;
 
 // Public Routes
 Route::get('/', function () {
@@ -289,6 +290,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/view-submissions', [ReportController::class, 'index'])->name('view.submissions');
         Route::put('/reports/{id}', [ReportController::class, 'update'])->name('update.report');
         Route::get('/files/{id}', [ReportController::class, 'downloadFile'])->name('files.download');
+        Route::put('reports/{id}/status', [ReportController::class, 'updateStatus'])->name('reports.updateStatus');
 
         // Report Types
         Route::get('/create-report', [ReportTypeController::class, 'index'])->name('create-report');
@@ -314,6 +316,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/view-reports', [BarangayController::class, 'viewReports'])->name('view-reports');
         Route::get('/overdue-reports', [BarangayController::class, 'overdueReports'])->name('overdue-reports');
         Route::post('/submissions/{id}/resubmit', [BarangayController::class, 'resubmit'])->name('submissions.resubmit');
+        Route::get('/reports/{id}/view', [BarangayController::class, 'viewReport'])->name('barangay.reports.view');
 
         // Debug routes for testing form submission
         Route::get('/test-resubmit', function() {
@@ -328,6 +331,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/files/{id}', [ReportController::class, 'downloadFile'])->name('files.download');
         Route::get('/direct-files/{id}', [BarangayController::class, 'directDownloadFile'])->name('direct.files.download');
         Route::delete('/files/{id}', [BarangayFileController::class, 'destroy'])->name('files.destroy');
+
+        // Notification routes for Barangay users
+        Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+        Route::post('/notifications/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.markAsRead');
     });
 
     // Facilitator Routes
@@ -343,4 +350,21 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/files/{id}', [BarangayFileController::class, 'download'])->name('files.download');
     });
 });
+
+// Fallback route for any other GET request not matched
+Route::get('/{any}', function () {
+    if (Auth::check()) {
+        $user = Auth::user();
+        if ($user->role === 'admin') {
+            return redirect()->route('admin.dashboard');
+        }
+        if ($user->role === 'facilitator') {
+            return redirect()->route('facilitator.dashboard');
+        }
+        if ($user->role === 'barangay') {
+            return redirect()->route('barangay.dashboard');
+        }
+    }
+    return redirect()->route('login'); // Default fallback
+})->where('any', '.*');
 

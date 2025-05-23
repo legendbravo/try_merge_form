@@ -41,7 +41,8 @@
             padding: 0;
             overflow: hidden;
             position: relative;
-            color: white;
+            display: flex;
+            flex-direction: column;
         }
         
         .login-side {
@@ -55,10 +56,6 @@
         }
         
         .logo-container {
-            position: absolute;
-            top: 30px;
-            left: 40px;
-            z-index: 100;
             display: flex;
             align-items: center;
             text-decoration: none;
@@ -68,15 +65,16 @@
             width: 60px;
             height: 60px;
             object-fit: contain;
-            filter: drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.1));
+            filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.1));
         }
         
         .logo-text {
             margin-left: 15px;
-            color: white;
-            font-size: 18px;
+            color: #0f2754;
+            font-size: 16px;
             font-weight: 600;
-            text-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+            text-shadow: none;
+            white-space: nowrap;
         }
         
         .login-form-container {
@@ -153,7 +151,7 @@
         }
         
         .carousel-item {
-            height: 100vh;
+            height: 100%;
         }
         
         .announcement-content {
@@ -245,6 +243,23 @@
             text-decoration: underline;
         }
         
+        .announcement-header {
+            background-color: #f6f6f7;
+            padding: 15px 40px;
+            box-sizing: border-box;
+            width: 100%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .announcement-body {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, #003366 0%, #001a33 100%);
+        }
+        
         @media (max-width: 768px) {
             .announcement-side {
                 display: none;
@@ -262,40 +277,44 @@
         <div class="row g-0 login-container">
             <!-- Left side: Announcements Carousel -->
             <div class="col-md-7 announcement-side">
-                <a href="/" class="logo-container">
-                    <img src="{{ asset('images/dilg.png') }}" alt="DILG Logo" class="logo-img">
-                    <div class="logo-text">Department of Interior and Local Government</div>
-                </a>
+                <div class="announcement-header">
+                    <a href="/" class="logo-container">
+                        <img src="{{ asset('images/dilgsmile-removebg-preview.png') }}" alt="DILG Logo" class="logo-img">
+                        <div class="logo-text">Department of Interior and Local Government - Bacolod City</div>
+                    </a>
+                </div>
                 
-                @php
-                    $announcements = [];
-                    try {
-                        $announcements = \App\Models\Announcement::getActiveAnnouncements();
-                    } catch (\Exception $e) {
-                        // Silently handle database errors
-                    }
-                @endphp
-                
-                @if(count($announcements) > 0)
-                    <x-announcement-carousel :announcements="$announcements" />
-                @else
-                    <div class="d-flex align-items-center justify-content-center h-100" style="background: linear-gradient(135deg, #003366 0%, #001a33 100%);">
-                        <div class="announcement-content text-center">
-                            <div class="announcement-badge">
-                                <i class="fas fa-star me-2"></i> Official Government Platform
-                            </div>
-                            <h1 class="announcement-title">Department of the Interior and Local Government</h1>
-                            <p class="announcement-text">
-                                Welcome to the DILG Barangay Reporting and Monitoring System. 
-                                This platform manages submissions, tracks performance, and 
-                                facilitates communication between government offices.
-                            </p>
-                            <div class="mt-4">
-                                <img src="{{ asset('images/dilg.png') }}" alt="DILG Logo" style="width: 120px; height: auto; opacity: 0.9;">
+                <div class="announcement-body">
+                    @php
+                        $announcements = [];
+                        try {
+                            $announcements = \App\Models\Announcement::getActiveAnnouncements();
+                        } catch (\Exception $e) {
+                            // Silently handle database errors
+                        }
+                    @endphp
+                    
+                    @if(count($announcements) > 0)
+                        <x-announcement-carousel :announcements="$announcements" />
+                    @else
+                        <div class="d-flex align-items-center justify-content-center h-100">
+                            <div class="announcement-content text-center">
+                                <div class="announcement-badge">
+                                    <i class="fas fa-star me-2"></i> Official Government Platform
+                                </div>
+                                <h1 class="announcement-title">Department of the Interior and Local Government<br>Bacolod City</h1>
+                                <p class="announcement-text">
+                                    Welcome to the DILG Barangay Reporting and Monitoring System. 
+                                    This platform manages submissions, tracks performance, and 
+                                    facilitates communication between government offices.
+                                </p>
+                                <div class="mt-4">
+                                    <img src="{{ asset('images/dilgsmile-removebg-preview.png') }}" alt="DILG Logo" style="width: 120px; height: auto; opacity: 0.9;">
+                                </div>
                             </div>
                         </div>
-                    </div>
-                @endif
+                    @endif
+                </div>
             </div>
             
             <!-- Right side: Login form -->
@@ -305,12 +324,12 @@
                         <h2 class="login-title">Sign In</h2>
                         <p class="login-subtitle">Enter your credentials to access your account</p>
 
-                        @if ($errors->any())
+        @if ($errors->any())
                             <div class="alert alert-danger" role="alert">
                                 <i class="fas fa-exclamation-circle me-2"></i>
-                                {{ $errors->first() }}
-                            </div>
-                        @endif
+                {{ $errors->first() }}
+            </div>
+        @endif
 
                         <form method="POST" action="{{ route('login') }}">
                             @csrf
@@ -337,15 +356,15 @@
                                     </a>
                                 @endif
                             </div>
-                            
+
                             <button type="submit" class="btn btn-primary login-btn w-100">
                                 <i class="fas fa-sign-in-alt me-2"></i> Sign In
                             </button>
-                        </form>
+    </form>
                     </div>
                     
                     <div class="footer-text">
-                        <p>Department of the Interior and Local Government</p>
+                        <p>Department of the Interior and Local Government<br>Bacolod City</p>
                         <p>© {{ date('Y') }} DILG. All rights reserved.</p>
                     </div>
                 </div>
